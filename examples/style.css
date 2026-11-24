@@ -1,0 +1,253 @@
+:root {
+  color-scheme: dark;
+  --glass-border: rgba(255,255,255,.22);
+  --glass-text: #f7f8ff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #090d1b;
+  color: var(--glass-text);
+}
+
+.scene-container {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.scene-container canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.glass-ui {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.glass-panel {
+  pointer-events: auto;
+  background: linear-gradient(135deg, rgba(255,255,255,.17), rgba(255,255,255,.055));
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 12px 36px rgba(0,0,0,.23), inset 0 1px 0 rgba(255,255,255,.2);
+  -webkit-backdrop-filter: blur(18px) saturate(155%);
+  backdrop-filter: blur(18px) saturate(155%);
+}
+
+.glass-header {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(610px, calc(100% - 36px));
+  padding: 13px 22px 12px;
+  border-radius: 21px;
+  text-align: center;
+  background: linear-gradient(120deg, rgba(30,42,66,.55), rgba(255,255,255,.12));
+}
+
+.glass-header .eyebrow {
+  margin: 0 0 5px;
+  color: #b9dfff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+}
+
+.glass-header h1 {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: clamp(22px, 2.5vw, 30px);
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: .035em;
+  text-shadow: 0 2px 18px rgba(130,190,255,.35);
+}
+
+.glass-header .subtitle {
+  margin: 6px 0 0;
+  color: rgba(240,245,255,.78);
+  font-size: 11px;
+  letter-spacing: .06em;
+}
+
+.instructions {
+  position: absolute;
+  left: 18px;
+  bottom: 112px;
+  width: min(315px, calc(100vw - 36px));
+  padding: 14px 15px 11px;
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(28,39,61,.72), rgba(255,255,255,.10));
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 9px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.panel-heading .symbol {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: rgba(155,207,255,.2);
+  color: #bce9ff;
+  font-size: 14px;
+}
+
+.instructions table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.instructions th {
+  padding: 6px 6px;
+  color: #b8dfff;
+  text-align: left;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  border-bottom: 1px solid rgba(255,255,255,.18);
+}
+
+.instructions td {
+  padding: 6px;
+  color: rgba(248,250,255,.9);
+  border-bottom: 1px solid rgba(255,255,255,.09);
+  vertical-align: middle;
+}
+
+.instructions tr:last-child td { border-bottom: 0; }
+
+.key {
+  display: inline-block;
+  min-width: 22px;
+  padding: 4px 5px;
+  margin-right: 2px;
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 6px;
+  background: rgba(255,255,255,.12);
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.15);
+  text-align: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: white;
+}
+
+.team-footer {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  width: min(735px, calc(100% - 36px));
+  padding: 10px 13px 11px;
+  border-radius: 18px;
+  background: linear-gradient(120deg, rgba(28,39,61,.76), rgba(255,255,255,.12));
+}
+
+.team-title {
+  margin: 0 0 7px;
+  text-align: center;
+  color: #c5e6ff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.team-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.team-member {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 11px;
+  background: rgba(255,255,255,.075);
+  border: 1px solid rgba(255,255,255,.1);
+}
+
+.team-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(132,220,255,.85), rgba(155,133,255,.85));
+  color: #10172b;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.team-name { display: block; font-size: 11px; font-weight: 700; }
+.team-control { display: block; margin-top: 2px; color: rgba(230,237,255,.72); font-size: 8px; }
+
+.glass-hint {
+  position: absolute;
+  right: 18px;
+  bottom: 112px;
+  max-width: 250px;
+  padding: 8px 11px;
+  border-radius: 12px;
+  color: rgba(245,248,255,.85);
+  font-size: 9px;
+  text-align: center;
+}
+
+@media (max-width: 800px) {
+  .instructions { width: min(285px, calc(100vw - 24px)); left: 12px; }
+  .glass-hint { right: 12px; max-width: 190px; }
+  .team-footer { width: min(680px, calc(100% - 24px)); }
+}
+
+@media (max-width: 560px) {
+  .glass-header { top: 9px; width: calc(100% - 20px); padding: 11px 13px; }
+  .glass-header .eyebrow { font-size: 8px; letter-spacing: .15em; }
+  .glass-header h1 { font-size: clamp(19px, 6vw, 25px); }
+  .glass-header .subtitle { font-size: 9px; }
+  .instructions { left: 10px; bottom: 150px; width: min(270px, calc(100vw - 20px)); padding: 10px 11px 8px; }
+  .instructions table { font-size: 9px; }
+  .instructions th { font-size: 8px; }
+  .instructions td { padding: 5px 4px; }
+  .team-footer { bottom: 7px; width: calc(100% - 16px); padding: 8px; }
+  .team-title { font-size: 8px; letter-spacing: .1em; }
+  .team-list { gap: 4px; }
+  .team-member { flex-direction: column; gap: 3px; padding: 5px 2px; text-align: center; }
+  .team-avatar { width: 21px; height: 21px; flex-basis: 21px; }
+  .team-name { font-size: 9px; }
+  .team-control { font-size: 7px; }
+  .glass-hint { display: none; }
+}
+
+@media (max-height: 620px) and (min-width: 561px) {
+  .instructions { bottom: 90px; transform: scale(.9); transform-origin: bottom left; }
+  .team-footer { bottom: 7px; padding: 7px 11px; }
+  .glass-header { top: 7px; padding: 9px 17px; }
+}

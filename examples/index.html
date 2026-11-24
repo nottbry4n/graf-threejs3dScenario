@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="es">
+	<head>
+		<title>DanceCrypt</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+		<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%237ce7ff'/%3E%3Cstop offset='1' stop-color='%239a7cff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='%23151b32'/%3E%3Cpath d='M12 37 24 17l9 15 7-10 12 21H12Z' fill='url(%23g)'/%3E%3Ccircle cx='45' cy='16' r='5' fill='%23fff' fill-opacity='.9'/%3E%3C/svg%3E">
+		<link rel="stylesheet" href="style.css">
+	</head>
+
+	<body>
+		<div class="glass-ui" aria-label="Interfaz del proyecto">
+			<header class="glass-panel glass-header">
+				<h1>DanceCrypt</h1>
+				<p class="subtitle">Nacidos para improvisar, hechos para dominar el escenario.</p>
+			</header>
+			<section class="glass-panel instructions" aria-labelledby="instructions-title">
+				<h2 class="panel-heading" id="instructions-title"><span class="symbol">⌘</span> GUÍA DE CONTROLES</h2>
+				<table>
+					<thead><tr><th>Tecla / acción</th><th>Función</th></tr></thead>
+					<tbody>
+						<tr><td><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span></td><td>Desplazar al personaje</td></tr>
+						<tr><td><span class="key">1</span> – <span class="key">6</span></td><td>Seleccionar pasos de baile</td></tr>
+						<tr><td>Mouse</td><td>Girar la cámara y explorar la escena</td></tr>
+						<tr><td>Rueda</td><td>Acercar o alejar la vista</td></tr>
+					</tbody>
+				</table>
+			</section>
+			<div class="glass-panel glass-hint">Arrastra para explorar la pista · Usa WASD para moverte</div>
+			<footer class="glass-panel team-footer">
+				<p class="team-title">Integrantes</p>
+				<div class="team-list">
+					<div class="team-member"><span class="team-avatar">K</span><span><span class="team-name">Kevin Bryan Labra Lugo</span><span class="team-control">N.º de control: 23200928</span></span></div>
+					<div class="team-member"><span class="team-avatar">I</span><span><span class="team-name">Itzel Mendoza Sánchez</span><span class="team-control">N.º de control: 26201715</span></span></div>
+					<div class="team-member"><span class="team-avatar">Í</span><span><span class="team-name">Íker de Jesús Velázquez Hernández</span><span class="team-control">N.º de control: 23201101</span></span></div>
+				</div>
+			</footer>
+		</div>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "../build/three.module.js",
+					"three/addons/": "./jsm/"
+				}
+			}
+		</script>
+
+		<script type="module">
+
+			import * as THREE from 'three';
+
+			import Stats from 'three/addons/libs/stats.module.js';
+
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+			import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+			import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+
+			// ---------------------------------------------------------------------
+			import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+			import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
+			import { Audio, AudioListener, AudioLoader } from 'three';
+			// ---------------------------------------------------------------------
+
+			const manager = new THREE.LoadingManager();
+
+			let camera, scene, renderer, stats, object, loader, guiMorphsFolder;
+			let mixer;
+
+			// OBJ, COL, MOV
+			let discoBall = null;
+			let danceBall = null;
+			let danceBallVelocity = new THREE.Vector3();
+			const movementKeys = { w: false, a: false, s: false, d: false };
+			const playerMoveSpeed = 115;
+			const playerRadius = 22;
+			const ballRadius = 14;
+			// Rebote de la pelota
+			const ballGravity = 420;
+			const ballRestitution = 0.62;
+			let playerTouchingBall = false;
+			let lastMoveDirection = new THREE.Vector3(0, 0, -1);
+
+			// Efectos visuales 
+			const collisionEffects = [];
+			const playerObstacleContacts = new Set();
+
+			// MOV POR TECLADO
+			
+			let animations = {};
+			let currentAction = null;
+			let targetSkinnedMesh = null;
+
+			const animationFiles = [
+				{ key: '1', name: 'Snake Hip Hop Dance', path: 'models/fbx/Snake Hip Hop Dance.fbx' },
+				{ key: '2', name: 'Breakdance 1990', path: 'models/fbx/Breakdance 1990.fbx' },
+				{ key: '3', name: 'Breakdance Freeze Var 2', path: 'models/fbx/Breakdance Freeze Var 2.fbx' },
+				{ key: '4', name: 'Breakdance Freeze Var 3', path: 'models/fbx/Breakdance Freeze Var 3.fbx' },
+				{ key: '5', name: 'Hip Hop Dancing (1)', path: 'models/fbx/Hip Hop Dancing (1).fbx' },
+				{ key: '6', name: 'Hip Hop Dancing', path: 'models/fbx/Hip Hop Dancing.fbx' }
+			];
+
+			const walkAnimationFiles = [
+				{ name: 'Walking', path: 'models/fbx/Walking.fbx', direction: 'walking' },
+				{ name: 'Backwards', path: 'models/fbx/Walking Backwards.fbx', direction: 'backwards' },
+				{ name: 'Left', path: 'models/fbx/Left Strafe Walking.fbx', direction: 'left' },
+				{ name: 'Right', path: 'models/fbx/Right Strafe Walking.fbx', direction: 'right' }
+			];
+
+			const allAnimationFiles = animationFiles.concat(walkAnimationFiles);
+			let selectedDanceName = 'Snake Hip Hop Dance';
+			const walkAnimationNames = walkAnimationFiles.map(animation => animation.name);
+
+			// MP3
+
+			const movementMusicFiles = {
+				'Snake Hip Hop Dance': 'models/audio/BAILE INoLVIDABLE.mp3',
+				'Breakdance 1990': 'models/audio/God\'s Plan.mp3',
+				'Breakdance Freeze Var 2': 'models/audio/Fale Então.mp3',
+				'Breakdance Freeze Var 3': 'models/audio/National Treasures.mp3',
+				'Hip Hop Dancing (1)': 'models/audio/Black Beatles.mp3',
+				'Hip Hop Dancing': 'models/audio/REAL GANGSTA LOVE.mp3',
+				'Walking Forward': 'models/audio/movimientos/walking-forward.mp3',
+				'Walking Backward': 'models/audio/movimientos/walking-backward.mp3',
+				'Walking Left': 'models/audio/movimientos/walking-left.mp3',
+				'Walking Right': 'models/audio/movimientos/walking-right.mp3'
+			};
+
+			let movementAudioListener = null;
+			let movementAudio = null;
+			let movementAudioLoader = null;
+			const movementAudioBuffers = {};
+			const movementAudioLoading = {};
+			let currentMusicName = null;
+
+			const clock = new THREE.Clock();
+
+			const params = {
+				asset: 'Flair',
+				movement: 'Snake Hip Hop Dance'
+			};
+
+			const assets = [
+				'Flair',
+				'morph_test'
+			];
+
+
+			init();
+
+			function init() {
+
+				const container = document.createElement( 'div' );
+				container.className = 'scene-container';
+				document.body.appendChild( container );
+
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 2000 );
+				camera.position.set( 100, 160, 300 );
+
+				scene = new THREE.Scene();
+				scene.background = new THREE.Color( 0xa0a0a0 );
+				scene.fog = new THREE.Fog( 0xa0a0a0, 600, 2200 );
+
+				// ILUM
+				
+				const hemiLight = new THREE.HemisphereLight(
+					0xffffff,
+					0x8a7968,
+					0.7
+				);
+
+				hemiLight.position.set(0, 200, 0);
+				scene.add(hemiLight);
+
+
+				const dirLight = new THREE.DirectionalLight(
+					0xffe6c4,
+					1.4
+				);
+
+				dirLight.position.set(0, 300, 100);
+
+				dirLight.castShadow = true;
+
+				dirLight.shadow.camera.top = 180;
+				dirLight.shadow.camera.bottom = -100;
+				dirLight.shadow.camera.left = -120;
+				dirLight.shadow.camera.right = 120;
+
+				scene.add(dirLight);
+
+				// SUELO DE MADERA
+				
+				const textureLoader = new THREE.TextureLoader();
+
+				const floorTexture = textureLoader.load(
+
+					'/examples/models/textures/piso_parquet/rectangular_parquet_diff_2k.jpg',
+
+					function (texture) {
+
+						console.log("Textura de madera cargada correctamente");
+
+					},
+
+					undefined,
+
+					function (error) {
+
+						console.error("Error al cargar la textura del suelo:", error);
+
+					}
+
+				);
+
+				floorTexture.wrapS = THREE.RepeatWrapping;
+				floorTexture.wrapT = THREE.RepeatWrapping;
+
+				floorTexture.repeat.set(20, 20);
+
+				floorTexture.colorSpace = THREE.SRGBColorSpace;
+
+				const exrLoader = new EXRLoader();
+
+				const floorNormal = exrLoader.load(
+					'/examples/models/textures/piso_parquet/rectangular_parquet_nor_gl_2k.exr'
+				);
+
+				const floorRoughness = exrLoader.load(
+					'/examples/models/textures/piso_parquet/rectangular_parquet_rough_2k.exr'
+				);
+
+				floorNormal.wrapS = THREE.RepeatWrapping;
+				floorNormal.wrapT = THREE.RepeatWrapping;
+				floorNormal.repeat.set(20, 20);
+
+				floorRoughness.wrapS = THREE.RepeatWrapping;
+				floorRoughness.wrapT = THREE.RepeatWrapping;
+				floorRoughness.repeat.set(20, 20);
+
+				const floorMaterial = new THREE.MeshStandardMaterial({
+
+					map: floorTexture,
+
+					normalMap: floorNormal,
+					normalScale: new THREE.Vector2(0.5, 0.5),
+
+					roughnessMap: floorRoughness,
+					roughness: 0.55,
+
+					metalness: 0.1
+
+				});
+
+				const mesh = new THREE.Mesh(
+					new THREE.PlaneGeometry(2000, 2000),
+					floorMaterial
+				);
+
+				mesh.rotation.x = -Math.PI / 2;
+
+				mesh.receiveShadow = true;
+
+				scene.add(mesh);
+				
+
+				// BOCINAS
+				const speakerBodyMaterial = new THREE.MeshStandardMaterial({
+					color: 0x252525,
+					roughness: 0.65,
+					metalness: 0.15
+				});
+
+				const speakerFrontMaterial = new THREE.MeshStandardMaterial({
+					color: 0x111111,
+					roughness: 0.85
+				});
+
+				const speakerConeMaterial = new THREE.MeshStandardMaterial({
+					color: 0x555555,
+					roughness: 0.8
+				});
+
+				function createSpeaker() {
+
+					const speaker = new THREE.Group();
+
+					const body = new THREE.Mesh(
+						new THREE.BoxGeometry(44, 120, 40),
+						speakerBodyMaterial
+					);
+
+					body.position.y = 60;
+					speaker.add(body);
+
+					const front = new THREE.Mesh(
+						new THREE.BoxGeometry(36, 108, 2),
+						speakerFrontMaterial
+					);
+
+					front.position.set(0, 60, 20.5);
+					speaker.add(front);
+
+					function addWoofer(y, radius) {
+
+						const outer = new THREE.Mesh(
+							new THREE.CylinderGeometry(radius, radius, 3, 32),
+							speakerBodyMaterial
+						);
+
+						outer.rotation.x = Math.PI / 2;
+						outer.position.set(0, y, 22);
+						speaker.add(outer);
+
+						const inner = new THREE.Mesh(
+							new THREE.CylinderGeometry(
+								radius * 0.65,
+								radius * 0.65,
+								2,
+								32
+							),
+							speakerConeMaterial
+						);
+
+						inner.rotation.x = Math.PI / 2;
+						inner.position.set(0, y, 24);
+						speaker.add(inner);
+
+					}
+
+					addWoofer(35, 14);
+					addWoofer(73, 14);
+
+					const tweeter = new THREE.Mesh(
+						new THREE.CylinderGeometry(6, 6, 3, 32),
+						speakerConeMaterial
+					);
+
+					tweeter.rotation.x = Math.PI / 2;
+					tweeter.position.set(0, 101, 22);
+					speaker.add(tweeter);
+
+					speaker.traverse(function(child) {
+
+						if (child.isMesh) {
+							child.castShadow = true;
+							child.receiveShadow = true;
+						}
+
+					});
+
+					return speaker;
+
+				}
+
+				const speakerLeft = createSpeaker();
+				const speakerRight = createSpeaker();
+
+				speakerLeft.position.set(-180, 0, -80);
+				speakerRight.position.set(180, 0, -80);
+
+				scene.add(speakerLeft);
+				scene.add(speakerRight);
+
+				// Mesa de DJ 
+				const djBooth = new THREE.Group();
+				const djBody = new THREE.Mesh(
+					new THREE.BoxGeometry(150, 65, 55),
+					new THREE.MeshStandardMaterial({ color: 0x20232a, roughness: 0.45, metalness: 0.35 })
+				);
+				djBody.position.y = 32.5;
+				djBody.castShadow = true;
+				djBody.receiveShadow = true;
+				djBooth.add(djBody);
+				const djTop = new THREE.Mesh(
+					new THREE.BoxGeometry(160, 8, 65),
+					new THREE.MeshStandardMaterial({ color: 0x555b66, roughness: 0.3, metalness: 0.5 })
+				);
+				djTop.position.y = 69;
+				djTop.castShadow = true;
+				djBooth.add(djTop);
+				djBooth.position.set(0, 0, -260);
+				scene.add(djBooth);
+
+				// Banco 
+				const bench = new THREE.Group();
+				const benchMaterial = new THREE.MeshStandardMaterial({ color: 0x49352b, roughness: 0.75 });
+				const benchSeat = new THREE.Mesh(new THREE.BoxGeometry(110, 12, 42), benchMaterial);
+				benchSeat.position.y = 38;
+				benchSeat.castShadow = true;
+				bench.add(benchSeat);
+				[-42, 42].forEach(x => {
+					const leg = new THREE.Mesh(new THREE.BoxGeometry(10, 35, 10), benchMaterial);
+					leg.position.set(x, 17, 0);
+					leg.castShadow = true;
+					bench.add(leg);
+				});
+				bench.position.set(260, 0, 100);
+				scene.add(bench);
+
+				// Bola disco 
+				discoBall = new THREE.Group();
+				const discoSphere = new THREE.Mesh(
+					new THREE.SphereGeometry(28, 24, 18),
+					new THREE.MeshStandardMaterial({ color: 0xb9c4d0, metalness: 0.9, roughness: 0.18 })
+				);
+				discoSphere.castShadow = true;
+				discoBall.add(discoSphere);
+				const discoRing = new THREE.Mesh(
+					new THREE.TorusGeometry(36, 1.5, 8, 48),
+					new THREE.MeshStandardMaterial({ color: 0xe5e7eb, metalness: 0.85, roughness: 0.2 })
+				);
+				discoRing.rotation.x = Math.PI / 2;
+				discoBall.add(discoRing);
+				discoBall.position.set(0, 235, -20);
+				scene.add(discoBall);
+
+				// Pelota 
+				danceBall = new THREE.Mesh(
+					new THREE.SphereGeometry(ballRadius, 24, 18),
+					new THREE.MeshStandardMaterial({ color: 0xe64b35, roughness: 0.45, metalness: 0.05 })
+				);
+				danceBall.position.set(0, ballRadius, 110);
+				danceBall.castShadow = true;
+				danceBall.receiveShadow = true;
+				scene.add(danceBall);
+
+				// Muros
+				const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x30343b, roughness: 0.8 });
+				const wallGeometry = new THREE.BoxGeometry(720, 65, 12);
+				const backWall = new THREE.Mesh(wallGeometry, wallMaterial);
+				backWall.position.set(0, 32.5, -365);
+				backWall.castShadow = true;
+				backWall.receiveShadow = true;
+				scene.add(backWall);
+				const frontWall = new THREE.Mesh(wallGeometry, wallMaterial);
+				frontWall.position.set(0, 32.5, 365);
+				frontWall.castShadow = true;
+				frontWall.receiveShadow = true;
+				scene.add(frontWall);
+				const sideWallGeometry = new THREE.BoxGeometry(12, 65, 730);
+				[-365, 365].forEach(x => {
+					const wall = new THREE.Mesh(sideWallGeometry, wallMaterial);
+					wall.position.set(x, 32.5, 0);
+					wall.castShadow = true;
+					wall.receiveShadow = true;
+					scene.add(wall);
+				});
+
+				console.log('Objetos 3D agregados: 2 bocinas, mesa DJ, banco, bola disco y pelota.');
+				console.log('La pista cuenta además con cuatro muros delimitadores.');
+
+				loader = new FBXLoader( manager );
+				loadAsset( params.asset );
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.setAnimationLoop( animate );
+				renderer.shadowMap.enabled = true;
+				container.appendChild( renderer.domElement );
+
+				const controls = new OrbitControls( camera, renderer.domElement );
+				controls.target.set( 0, 100, 0 );
+				controls.update();
+
+				window.addEventListener( 'resize', onWindowResize );
+
+				// Controles de teclado
+				window.addEventListener('keydown', onMovementKeyDown);
+				window.addEventListener('keyup', onMovementKeyUp);
+
+				console.log('CONTROLES DEL PERSONAJE:');
+				animationFiles.forEach(animation => {
+					console.log('Tecla ' + animation.key + ': ' + animation.name);
+				});
+
+				stats = new Stats();
+				container.appendChild( stats.dom );
+
+				const gui = new GUI();
+				gui.add( params, 'asset', assets ).onChange( function ( value ) {
+
+					loadAsset( value );
+
+				} );
+
+				guiMorphsFolder = gui.addFolder( 'Morphs' ).hide();
+
+				const rgbeLoader = new RGBELoader();
+
+				rgbeLoader.load('models/rgbe/dancing_hall_8k.hdr', function (texture) {
+
+					texture.mapping = THREE.EquirectangularReflectionMapping;
+
+					scene.background = texture;
+
+					scene.environment = texture;
+
+					scene.backgroundIntensity = 0.55;
+
+					scene.environmentIntensity = 0.45;
+
+				});
+
+				// Audio
+				movementAudioListener = new AudioListener();
+				camera.add(movementAudioListener);
+
+				movementAudio = new Audio(movementAudioListener);
+				movementAudioLoader = new AudioLoader();
+				movementAudio.setLoop(true);
+				movementAudio.setVolume(0.5);
+
+				console.log('Sistema de música por movimiento preparado.');
+				console.log('La música comenzará al seleccionar un movimiento o caminar.');
+
+			}
+
+			function loadAsset( asset ) {
+
+				loader.load( 'models/fbx/Ch06_nonPBR.fbx', function ( group ) {
+
+					if ( object ) {
+
+						object.traverse( function ( child ) {
+
+							if ( child.material ) {
+							console.log(
+									"Pieza:", child.name,
+									"Material:",
+									child.material?.name
+								);
+
+								const materials = Array.isArray( child.material ) ? child.material : [ child.material ];
+								materials.forEach( material => {
+
+									if ( material.map ) material.map.dispose();
+									material.dispose();
+			
+								} );
+			
+							}
+			
+							if ( child.geometry ) child.geometry.dispose();
+
+						} );
+
+						scene.remove( object );
+
+					}
+
+					object = group;
+
+					mixer = new THREE.AnimationMixer(object);
+					animations = {};
+					currentAction = null;
+					targetSkinnedMesh = getFirstSkinnedMesh(object);
+
+					if (!targetSkinnedMesh) {
+
+						console.error('No se encontró un SkinnedMesh en Ch06_nonPBR.fbx. No es posible aplicar las animaciones al personaje.');
+
+					}
+
+					guiMorphsFolder.children.forEach( ( child ) => child.destroy() );
+					guiMorphsFolder.hide();
+
+					object.traverse( function ( child ) {
+
+						if ( child.isMesh ) {
+
+							if (child.material) {
+
+								const materials = Array.isArray(child.material)
+									? child.material
+									: [child.material];
+
+								materials.forEach(material => {
+
+									material.transparent = false;
+									material.opacity = 1;
+									material.roughness = 0.8;
+									material.metalness = 0.0;
+
+									material.needsUpdate = true;
+
+								});
+
+								console.log(
+									"Pieza:", child.name,
+									"Material:",
+									child.material?.name
+								);
+
+							}
+							child.castShadow = true;
+							child.receiveShadow = true;
+
+							if ( child.morphTargetDictionary ) {
+
+								guiMorphsFolder.show();
+								const meshFolder = guiMorphsFolder.addFolder( child.name || child.uuid );
+								Object.keys( child.morphTargetDictionary ).forEach( ( key ) => {
+			
+									meshFolder.add( child.morphTargetInfluences, child.morphTargetDictionary[ key ], 0, 1, 0.01 );
+			
+								} );
+			
+							}
+
+						}
+
+					} );
+
+					scene.add( object );
+
+					if (targetSkinnedMesh) {
+						loadCharacterAnimations();
+					}
+
+				} );
+
+			}
+
+			function getFirstSkinnedMesh(root) {
+
+				let result = null;
+
+				root.traverse(function (child) {
+					if (!result && child.isSkinnedMesh) result = child;
+				});
+
+				return result;
+
+			}
+
+			function normalizeBoneName(name) {
+
+				return name
+					.toLowerCase()
+					.replace(/^mixamorig:?/, '')
+					.replace(/[^a-z0-9]/g, '');
+
+			}
+
+			function loadCharacterAnimations() {
+
+				let loadedCount = 0;
+				let failedCount = 0;
+
+				console.log('Iniciando carga de bailes y animaciones de caminar...');
+
+				allAnimationFiles.forEach(function (animation) {
+
+					loader.load(
+
+						animation.path,
+
+						function (animationFBX) {
+
+							try {
+
+								if (!animationFBX.animations || animationFBX.animations.length === 0) {
+									throw new Error('El archivo FBX no contiene clips de animación.');
+								}
+
+								const sourceSkinnedMesh = getFirstSkinnedMesh(animationFBX);
+								let sourceSkeleton;
+
+								if (sourceSkinnedMesh) {
+									sourceSkeleton = sourceSkinnedMesh.skeleton;
+								} else {
+									const sourceBones = [];
+									animationFBX.traverse(function (child) {
+										if (child.isBone) sourceBones.push(child);
+									});
+
+									if (sourceBones.length === 0) {
+										throw new Error('No se encontró un esqueleto en el FBX de animación.');
+									}
+
+									sourceSkeleton = new THREE.Skeleton(sourceBones);
+								}
+
+								const sourceBoneNames = sourceSkeleton.bones.map(bone => bone.name);
+
+								const boneNameMap = {};
+
+								targetSkinnedMesh.skeleton.bones.forEach(function (targetBone) {
+
+									const normalizedTargetName = normalizeBoneName(targetBone.name);
+									const matchingSourceBone = sourceSkeleton.bones.find(function (sourceBone) {
+										return normalizeBoneName(sourceBone.name) === normalizedTargetName;
+									});
+
+									if (matchingSourceBone) {
+										boneNameMap[targetBone.name] = matchingSourceBone.name;
+									}
+
+								});
+
+								const mappedCount = Object.keys(boneNameMap).length;
+
+								if (mappedCount === 0) {
+									throw new Error('No hay nombres de huesos compatibles entre el personaje y esta animación.');
+								}
+
+								const sourceHip = sourceSkeleton.bones.find(function (bone) {
+									return normalizeBoneName(bone.name) === 'hips' || normalizeBoneName(bone.name) === 'hip';
+								});
+
+								const sourceClip = animationFBX.animations[0];
+								sourceClip.name = animation.name;
+
+								const retargetedClip = SkeletonUtils.retargetClip(
+									targetSkinnedMesh,
+									sourceSkeleton,
+									sourceClip,
+									{
+										useFirstFramePosition: false,
+										preserveBoneMatrix: true,
+										preserveBonePositions: true,
+										hip: sourceHip ? sourceHip.name : 'hip',
+										getBoneName: function (targetBone) {
+											return boneNameMap[targetBone.name];
+										}
+									}
+								);
+
+								retargetedClip.name = animation.name;
+
+								const action = mixer.clipAction(retargetedClip, targetSkinnedMesh);
+								action.setLoop(THREE.LoopRepeat, Infinity);
+								action.clampWhenFinished = false;
+
+								animations[animation.name] = action;
+								loadedCount++;
+
+								console.log(
+									'Movimiento listo:', animation.name,
+									'| Huesos relacionados:', mappedCount,
+									'| Huesos del personaje:', targetSkinnedMesh.skeleton.bones.length,
+									'| Huesos del FBX:', sourceBoneNames.length
+								);
+
+								if (loadedCount + failedCount === allAnimationFiles.length && !currentAction) {
+									playAnimation(params.movement);
+								}
+
+							} catch (error) {
+
+								failedCount++;
+								console.error('No se pudo adaptar el movimiento ' + animation.name + ':', error);
+
+								if (loadedCount + failedCount === allAnimationFiles.length && !currentAction) {
+									playFirstAvailableAnimation();
+								}
+
+							}
+
+						},
+
+						undefined,
+
+						function (error) {
+
+							failedCount++;
+								console.error('Error al cargar ' + animation.path + ':', error);
+
+								if (loadedCount + failedCount === allAnimationFiles.length && !currentAction) {
+									playFirstAvailableAnimation();
+								}
+
+						}
+
+					);
+
+				});
+
+			}
+
+			function playMovementMusic(name) {
+
+				if (!movementAudio || !movementAudioLoader) return;
+
+				const musicPath = movementMusicFiles[name];
+
+				if (!musicPath) {
+					console.warn('No hay una pista configurada para:', name);
+					return;
+				}
+
+				if (currentMusicName === name && movementAudio.isPlaying) return;
+
+				currentMusicName = name;
+
+				if (movementAudioListener.context.state === 'suspended') {
+					movementAudioListener.context.resume().catch(function (error) {
+						console.warn('No se pudo reanudar el audio:', error);
+					});
+				}
+
+				if (movementAudioBuffers[name]) {
+					if (movementAudio.isPlaying) movementAudio.stop();
+					movementAudio.setBuffer(movementAudioBuffers[name]);
+					movementAudio.setLoop(true);
+					movementAudio.setVolume(0.5);
+					movementAudio.play();
+					console.log('Reproduciendo música para:', name);
+					return;
+				}
+
+				if (movementAudioLoading[name]) return;
+				movementAudioLoading[name] = true;
+
+				movementAudioLoader.load(
+					musicPath,
+					function (buffer) {
+						movementAudioBuffers[name] = buffer;
+						movementAudioLoading[name] = false;
+
+						if (currentMusicName !== name) return;
+
+						if (movementAudio.isPlaying) movementAudio.stop();
+						movementAudio.setBuffer(buffer);
+						movementAudio.setLoop(true);
+						movementAudio.setVolume(0.5);
+
+						if (movementAudioListener.context.state === 'running') {
+							movementAudio.play();
+							console.log('Pista cargada y reproduciéndose:', name);
+						} else {
+							console.log('Pista cargada. Presiona una tecla para iniciar el audio:', name);
+						}
+					},
+					undefined,
+					function (error) {
+						movementAudioLoading[name] = false;
+						console.error('No se pudo cargar la música de ' + name + '. Revisa la ruta: ' + musicPath, error);
+					}
+				);
+
+			}
+
+			function playAnimation(name) {
+
+				const nextAction = animations[name];
+
+				if (!nextAction) {
+					console.warn('El movimiento aún no está disponible:', name);
+					return;
+				}
+
+				if (currentAction === nextAction) {
+					playMovementMusic(name);
+					return;
+				}
+
+				if (currentAction) currentAction.fadeOut(0.25);
+
+				nextAction.reset();
+				nextAction.enabled = true;
+				nextAction.setEffectiveTimeScale(1);
+				nextAction.setEffectiveWeight(1);
+				nextAction.fadeIn(0.25);
+				nextAction.play();
+
+				currentAction = nextAction;
+				params.movement = name;
+
+				playMovementMusic(name);
+
+				console.log('Movimiento seleccionado:', name);
+
+			}
+
+			function playFirstAvailableAnimation() {
+
+				const firstAvailableName = Object.keys(animations)[0];
+
+				if (firstAvailableName) playAnimation(firstAvailableName);
+				else console.error('No se pudo cargar ninguna animación. Revisa las rutas y la compatibilidad de los esqueletos.');
+
+			}
+
+			// CONTROLES DE TECLADO: 1, 2, 3, 4, 5 Y 6
+			function onMovementKeyDown(event) {
+
+				if (event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
+
+				const key = event.key;
+				const movementKey = key.toLowerCase();
+
+				if (movementKey in movementKeys) {
+					movementKeys[movementKey] = true;
+					event.preventDefault();
+				}
+
+				const selectedAnimation = animationFiles.find(function (animation) {
+					return animation.key === key;
+				});
+
+				if (selectedAnimation) {
+					selectedDanceName = selectedAnimation.name;
+					const isWalking = Object.values(movementKeys).some(Boolean);
+					if (!isWalking) playAnimation(selectedDanceName);
+				}
+
+			}
+
+			function onMovementKeyUp(event) {
+
+				const key = event.key.toLowerCase();
+				if (key in movementKeys) movementKeys[key] = false;
+
+			}
+
+			// EFECTOS VISUALES DE COLISIÓN
+			function createCollisionEffect(position, color = 0xffb347, intensity = 1) {
+
+				if (!scene) return;
+
+
+				const group = new THREE.Group();
+				group.position.copy(position);
+				group.position.y = Math.max(1.5, group.position.y);
+
+				const ringMaterial = new THREE.MeshBasicMaterial({
+					color: color,
+					transparent: true,
+					opacity: 0.9,
+					depthWrite: false
+				});
+
+				const particleMaterial = new THREE.MeshBasicMaterial({
+					color: color,
+					transparent: true,
+					opacity: 1,
+					depthWrite: false
+				});
+
+				const ring = new THREE.Mesh(
+					new THREE.TorusGeometry(1, 0.12, 8, 32),
+					ringMaterial
+				);
+				ring.rotation.x = -Math.PI / 2;
+				group.add(ring);
+
+				const particles = [];
+				const particleGeometry = new THREE.SphereGeometry(0.9, 8, 6);
+				const particleCount = 8;
+
+				for (let i = 0; i < particleCount; i++) {
+					const angle = (i / particleCount) * Math.PI * 2;
+					const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+					particle.position.set(0, 0, 0);
+					group.add(particle);
+
+					const speed = (35 + Math.random() * 45) * intensity;
+					particles.push({
+						mesh: particle,
+						velocity: new THREE.Vector3(
+							Math.cos(angle) * speed,
+							(25 + Math.random() * 45) * intensity,
+							Math.sin(angle) * speed
+						)
+					});
+				}
+
+				scene.add(group);
+				collisionEffects.push({
+					group: group,
+					ring: ring,
+					particles: particles,
+					ringMaterial: ringMaterial,
+					particleMaterial: particleMaterial,
+					particleGeometry: particleGeometry,
+					life: 0,
+					duration: 0.42
+				});
+			}
+
+			function updateCollisionEffects(delta) {
+
+				for (let i = collisionEffects.length - 1; i >= 0; i--) {
+					const effect = collisionEffects[i];
+					effect.life += delta;
+
+					const progress = Math.min(effect.life / effect.duration, 1);
+					const remaining = 1 - progress;
+
+					const ringScale = 1 + progress * 13;
+					effect.ring.scale.set(ringScale, ringScale, ringScale);
+					effect.ringMaterial.opacity = remaining * 0.9;
+
+					effect.particles.forEach(particle => {
+						particle.velocity.y -= 150 * delta;
+						particle.mesh.position.addScaledVector(particle.velocity, delta);
+						particle.mesh.scale.setScalar(Math.max(0.05, remaining));
+					});
+
+					effect.particleMaterial.opacity = remaining;
+
+					if (effect.life >= effect.duration) {
+						scene.remove(effect.group);
+						effect.ring.geometry.dispose();
+						effect.particleGeometry.dispose();
+						effect.ringMaterial.dispose();
+						effect.particleMaterial.dispose();
+						collisionEffects.splice(i, 1);
+					}
+				}
+			}
+
+			function circleIntersectsBox(x, z, radius, box) {
+
+				const closestX = THREE.MathUtils.clamp(x, box.minX, box.maxX);
+				const closestZ = THREE.MathUtils.clamp(z, box.minZ, box.maxZ);
+				const dx = x - closestX;
+				const dz = z - closestZ;
+				return (dx * dx + dz * dz) < radius * radius;
+
+			}
+
+			function getStaticCollisionBoxes() {
+
+				return [
+					{ minX: -204, maxX: -156, minZ: -102, maxZ: -58 },
+					{ minX: 156, maxX: 204, minZ: -102, maxZ: -58 },
+					{ minX: -85, maxX: 85, minZ: -295, maxZ: -225 },
+					{ minX: 200, maxX: 320, minZ: 72, maxZ: 128 }
+				];
+
+			}
+
+			function updateCharacterMovement(delta) {
+
+				if (!object) return;
+
+				const direction = new THREE.Vector3(
+					(Number(movementKeys.d) - Number(movementKeys.a)),
+					0,
+					(Number(movementKeys.s) - Number(movementKeys.w))
+				);
+
+				const isMoving = direction.lengthSq() > 0;
+
+				if (!isMoving) {
+					if (currentAction && walkAnimationNames.includes(currentAction.getClip().name)) {
+						playAnimation(selectedDanceName);
+					}
+				} else {
+
+					let walkName;
+					if (Math.abs(direction.z) >= Math.abs(direction.x)) {
+						walkName = direction.z < 0 ? 'Walking Forward' : 'Walking Backward';
+					} else {
+						walkName = direction.x < 0 ? 'Walking Left' : 'Walking Right';
+					}
+
+					if (animations[walkName]) playAnimation(walkName);
+
+					direction.normalize();
+					lastMoveDirection.copy(direction);
+
+					const step = direction.clone().multiplyScalar(playerMoveSpeed * delta);
+					const boxes = getStaticCollisionBoxes();
+					const currentObstacleContacts = new Set();
+
+					const candidateX = THREE.MathUtils.clamp(object.position.x + step.x, -330, 330);
+					let blockedX = false;
+					for (let i = 0; i < boxes.length; i++) {
+						const box = boxes[i];
+						if (circleIntersectsBox(candidateX, object.position.z, playerRadius, box)) {
+							blockedX = true;
+							currentObstacleContacts.add(i);
+							if (!playerObstacleContacts.has(i)) {
+								const impactX = THREE.MathUtils.clamp(object.position.x, box.minX, box.maxX);
+								const impactZ = THREE.MathUtils.clamp(object.position.z, box.minZ, box.maxZ);
+								createCollisionEffect(new THREE.Vector3(impactX, 4, impactZ), 0xffc857, 1.0);
+							}
+						}
+					}
+					if (!blockedX) object.position.x = candidateX;
+
+					const candidateZ = THREE.MathUtils.clamp(object.position.z + step.z, -330, 330);
+					let blockedZ = false;
+					for (let i = 0; i < boxes.length; i++) {
+						const box = boxes[i];
+						if (circleIntersectsBox(object.position.x, candidateZ, playerRadius, box)) {
+							blockedZ = true;
+							currentObstacleContacts.add(i);
+							if (!playerObstacleContacts.has(i)) {
+								const impactX = THREE.MathUtils.clamp(object.position.x, box.minX, box.maxX);
+								const impactZ = THREE.MathUtils.clamp(object.position.z, box.minZ, box.maxZ);
+								createCollisionEffect(new THREE.Vector3(impactX, 4, impactZ), 0xffc857, 1.0);
+							}
+						}
+					}
+					if (!blockedZ) object.position.z = candidateZ;
+
+					playerObstacleContacts.clear();
+					currentObstacleContacts.forEach(index => playerObstacleContacts.add(index));
+
+				}
+
+				if (danceBall) {
+					const dx = danceBall.position.x - object.position.x;
+					const dz = danceBall.position.z - object.position.z;
+					const distance = Math.sqrt(dx * dx + dz * dz);
+					const minimumDistance = playerRadius + ballRadius;
+
+					if (distance < minimumDistance) {
+						if (!playerTouchingBall) {
+							const impactPosition = new THREE.Vector3(
+								(object.position.x + danceBall.position.x) * 0.5,
+								4,
+								(object.position.z + danceBall.position.z) * 0.5
+							);
+							createCollisionEffect(impactPosition, 0x55ddff, 1.15);
+						}
+						const normal = new THREE.Vector3(dx, 0, dz);
+						if (normal.lengthSq() < 0.0001) normal.copy(lastMoveDirection);
+					normal.normalize();
+
+						const overlap = minimumDistance - distance;
+						danceBall.position.x += normal.x * (overlap + 0.5);
+						danceBall.position.z += normal.z * (overlap + 0.5);
+
+						if (isMoving) {
+							const pushStrength = Math.max(0, direction.dot(normal));
+							danceBallVelocity.addScaledVector(normal, 240 * pushStrength * delta);
+
+							if (!playerTouchingBall && pushStrength > 0.2) {
+								danceBallVelocity.y = Math.max(danceBallVelocity.y, 125);
+							}
+						} else {
+							const velocityTowardPlayer = danceBallVelocity.dot(normal);
+							if (velocityTowardPlayer < 0) {
+								danceBallVelocity.addScaledVector(normal, -1.45 * velocityTowardPlayer);
+							}
+						}
+
+						playerTouchingBall = true;
+					} else {
+						playerTouchingBall = false;
+					}
+				}
+
+			}
+
+			function resolveBallAgainstBox(box, restitution = 0.68) {
+
+				const x = danceBall.position.x;
+				const z = danceBall.position.z;
+
+				const closestX = THREE.MathUtils.clamp(x, box.minX, box.maxX);
+				const closestZ = THREE.MathUtils.clamp(z, box.minZ, box.maxZ);
+
+				let normalX = x - closestX;
+				let normalZ = z - closestZ;
+				let distanceSquared = normalX * normalX + normalZ * normalZ;
+
+				if (distanceSquared < 0.000001) {
+
+					const distances = [
+						{ distance: Math.abs(x - box.minX), x: -1, z: 0, px: box.minX - ballRadius, pz: z },
+						{ distance: Math.abs(box.maxX - x), x: 1, z: 0, px: box.maxX + ballRadius, pz: z },
+						{ distance: Math.abs(z - box.minZ), x: 0, z: -1, px: x, pz: box.minZ - ballRadius },
+						{ distance: Math.abs(box.maxZ - z), x: 0, z: 1, px: x, pz: box.maxZ + ballRadius }
+					];
+
+					distances.sort((a, b) => a.distance - b.distance);
+					const side = distances[0];
+
+					danceBall.position.set(side.px, danceBall.position.y, side.pz);
+					normalX = side.x;
+					normalZ = side.z;
+
+				} else {
+
+					const distance = Math.sqrt(distanceSquared);
+					if (distance >= ballRadius) return false;
+
+					normalX /= distance;
+					normalZ /= distance;
+
+					const overlap = ballRadius - distance;
+					danceBall.position.x += normalX * (overlap + 0.01);
+					danceBall.position.z += normalZ * (overlap + 0.01);
+
+				}
+
+				const velocityIntoSurface =
+					danceBallVelocity.x * normalX +
+					danceBallVelocity.z * normalZ;
+
+				if (velocityIntoSurface < 0) {
+					if (velocityIntoSurface < -24) {
+						const impactPosition = new THREE.Vector3(
+							danceBall.position.x - normalX * (ballRadius * 0.45),
+							danceBall.position.y,
+							danceBall.position.z - normalZ * (ballRadius * 0.45)
+						);
+						createCollisionEffect(impactPosition, 0xffc857, 0.9);
+					}
+
+					const impulse = (1 + restitution) * velocityIntoSurface;
+					danceBallVelocity.x -= impulse * normalX;
+					danceBallVelocity.z -= impulse * normalZ;
+
+					danceBallVelocity.x *= 0.985;
+					danceBallVelocity.z *= 0.985;
+				}
+
+				return true;
+			}
+
+			function resolveBallAgainstWalls() {
+
+				const minLimit = -330;
+				const maxLimit = 330;
+				const wallRestitution = 0.72;
+
+				if (danceBall.position.x < minLimit) {
+					danceBall.position.x = minLimit;
+					if (danceBallVelocity.x < 0) {
+						createCollisionEffect(new THREE.Vector3(minLimit, danceBall.position.y, danceBall.position.z), 0x66ccff, 0.85);
+						danceBallVelocity.x = -danceBallVelocity.x * wallRestitution;
+					}
+				} else if (danceBall.position.x > maxLimit) {
+					danceBall.position.x = maxLimit;
+					if (danceBallVelocity.x > 0) {
+						createCollisionEffect(new THREE.Vector3(maxLimit, danceBall.position.y, danceBall.position.z), 0x66ccff, 0.85);
+						danceBallVelocity.x = -danceBallVelocity.x * wallRestitution;
+					}
+				}
+
+				if (danceBall.position.z < minLimit) {
+					danceBall.position.z = minLimit;
+					if (danceBallVelocity.z < 0) {
+						createCollisionEffect(new THREE.Vector3(danceBall.position.x, danceBall.position.y, minLimit), 0x66ccff, 0.85);
+						danceBallVelocity.z = -danceBallVelocity.z * wallRestitution;
+					}
+				} else if (danceBall.position.z > maxLimit) {
+					danceBall.position.z = maxLimit;
+					if (danceBallVelocity.z > 0) {
+						createCollisionEffect(new THREE.Vector3(danceBall.position.x, danceBall.position.y, maxLimit), 0x66ccff, 0.85);
+						danceBallVelocity.z = -danceBallVelocity.z * wallRestitution;
+					}
+				}
+			}
+
+			function updateDynamicObjects(delta) {
+
+				if (discoBall) discoBall.rotation.y += delta * 0.8;
+
+				if (!danceBall) return;
+
+				delta = Math.min(delta, 0.033);
+
+				danceBallVelocity.y -= ballGravity * delta;
+				danceBall.position.y += danceBallVelocity.y * delta;
+
+				if (danceBall.position.y < ballRadius) {
+					danceBall.position.y = ballRadius;
+
+					if (danceBallVelocity.y < -8) {
+						if (danceBallVelocity.y < -85) {
+							createCollisionEffect(
+								new THREE.Vector3(danceBall.position.x, 2, danceBall.position.z),
+								0xff7043,
+							Math.min(1.35, Math.abs(danceBallVelocity.y) / 180)
+							);
+						}
+						danceBallVelocity.y = -danceBallVelocity.y * ballRestitution;
+					} else {
+						danceBallVelocity.y = 0;
+					}
+				}
+
+				danceBall.position.x += danceBallVelocity.x * delta;
+				danceBall.position.z += danceBallVelocity.z * delta;
+				danceBall.rotation.x += danceBallVelocity.z * delta / ballRadius;
+				danceBall.rotation.z -= danceBallVelocity.x * delta / ballRadius;
+
+				resolveBallAgainstWalls();
+
+				const boxes = getStaticCollisionBoxes();
+				for (let pass = 0; pass < 2; pass++) {
+					let collisionDetected = false;
+
+					boxes.forEach(box => {
+						if (resolveBallAgainstBox(box, 0.68)) collisionDetected = true;
+					});
+
+					if (!collisionDetected) break;
+				}
+
+				resolveBallAgainstWalls();
+
+				const horizontalFriction = Math.pow(0.985, delta * 60);
+				danceBallVelocity.x *= horizontalFriction;
+				danceBallVelocity.z *= horizontalFriction;
+
+				if (Math.abs(danceBallVelocity.x) < 2) danceBallVelocity.x = 0;
+				if (Math.abs(danceBallVelocity.z) < 2) danceBallVelocity.z = 0;
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			//
+
+			function animate() {
+
+				const delta = clock.getDelta();
+
+				if ( mixer ) mixer.update( delta );
+				updateCharacterMovement(delta);
+				updateDynamicObjects(delta);
+				updateCollisionEffects(Math.min(delta, 0.05));
+
+				renderer.render( scene, camera );
+
+				stats.update();
+
+			}
+
+		</script>
+
+
+	</body>
+</html>
